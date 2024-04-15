@@ -45,6 +45,40 @@ dat_B <- cbind(data.frame(Y = y2), X2)
   
 ```
 
+```{r}
+my_glmnet_fit <- function(train_df, test_df, a=0){  # a=0 --> ridge; a=1 --> Lasso
+  
+  ## separate X and y
+  train_x <- as.matrix(select(train_df, -Y))
+  train_y <- train_df$Y
+  
+  test_x <- as.matrix(select(test_df, -Y))
+  test_y <- test_df$Y
+  
+  ## run cv.glmnet
+  cv.fit <- cv.glmnet(train_x, train_y, alpha = a, lambda = lambdas)
+  plot(cv.fit)
+  
+  ## optimal lambda, and the corresponding glmnet to the FULL data
+  opt.lambda <- cv.fit$lambda.1se  # lambda.min 
+  fit.glmnet <- cv.fit$glmnet.fit
+  
+  ## pick the coefficients
+  betas <- as.matrix(coef(fit.glmnet, s=opt.lambda))
+  n_nonzero_coef <- sum(betas!=0) # no of non-zero coef
+  
+  ## prediction and mSPE
+  pred <- predict(fit.glmnet, s=opt.lambda, newx = test_x)
+  mspe <- mean((test_y - pred)^2)
+  
+  ## collect results and returns
+  return(list(alpha = a, MSPE = mspe,
+              opt.lambda = opt.lambda,
+              n_nonzero_coef = n_nonzero_coef))
+  
+}
+```
+
 ## Step 1.2: Understand the code
 what is the similarity and difference between the two data sets, dat_A and dat_B?     
 
@@ -71,28 +105,18 @@ test_data_A <- dat_A[test_ind,]
 train_data_B <- dat_B[train_ind,]
 test_data_B <- dat_B[test_ind,]
 
+my_glmnet_fit(train_data_A,test_data_A,a=1)
+my_glmnet_fit(train_data_A,test_data_A,a=0)
+
+my_glmnet_fit(train_data_B,test_data_B,a=1)
+my_glmnet_fit(train_data_B,test_data_B,a=0)
+
 
 ```
+## Compare the models:
+Lasso for dat_A recognises the five predictors well,and produce the good predict result. mspe 1.495747 is very good campares to the ridge 78.20096.    
 
 
-
-```{r}
-# 创建一个包含身高和体重的数据框
-data <- data.frame(
-  height = c(160, 170, 165, 180, 175), # 身高（单位：厘米）
-  weight = c(60, 70, 65, 80, 75)        # 体重（单位：千克）
-)
-
-# 打印原始数据
-print("原始数据：")
-print(data)
-
-# 使用scale函数对数据进行标准化处理
-scaled_data <- scale(data)
-
-# 打印标准化后的数据
-print("标准化后的数据：")
-print(scaled_data)
-
-```
+ridge for dat_b works well for high correlated predictors.lasso is not bad too and create simpler model.
+for mspe, ridge is a liitle bit better. I'd rather choose lasso in pratice.    
 
